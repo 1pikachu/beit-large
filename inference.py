@@ -58,12 +58,12 @@ def test(args, val_loader, model):
         for i, (image, _) in enumerate(val_loader):
             if i >= args.num_iter:
                 break
-            image = image.to(args.device)
             if args.channels_last:
                 image = image.to(memory_format=torch.channels_last)
 
             with torch.autograd.profiler_legacy.profile(enabled=args.profile, use_xpu=True, record_shapes=False) as prof:
                 elapsed = time.time()
+                image = image.to(args.device)
                 outputs = model(image)
                 torch.xpu.synchronize()
                 elapsed = time.time() - elapsed
@@ -97,11 +97,11 @@ def test(args, val_loader, model):
             for i, (image, _) in enumerate(val_loader):
                 if i >= args.num_iter:
                     break
-                image = image.to(args.device)
                 if args.channels_last:
                     image = image.to(memory_format=torch.channels_last)
 
                 elapsed = time.time()
+                image = image.to(args.device)
                 with torch.jit.fuser(fuser_mode):
                     outputs = model(image)
                 torch.cuda.synchronize()
@@ -125,11 +125,11 @@ def test(args, val_loader, model):
             for i, (image, _) in enumerate(val_loader):
                 if i >= args.num_iter:
                     break
-                image = image.to(args.device)
                 if args.channels_last:
                     image = image.to(memory_format=torch.channels_last)
 
                 elapsed = time.time()
+                image = image.to(args.device)
                 outputs = model(image)
                 elapsed = time.time() - elapsed
                 p.step()
@@ -141,11 +141,11 @@ def test(args, val_loader, model):
         for i, (image, _) in enumerate(val_loader):
             if i >= args.num_iter:
                 break
-            image = image.to(args.device)
             if args.channels_last:
                 image = image.to(memory_format=torch.channels_last)
 
             elapsed = time.time()
+            image = image.to(args.device)
             with torch.jit.fuser(fuser_mode):
                 outputs = model(image)
             torch.cuda.synchronize()
@@ -158,11 +158,11 @@ def test(args, val_loader, model):
         for i, (image, _) in enumerate(val_loader):
             if i >= args.num_iter:
                 break
-            image = image.to(args.device)
             if args.channels_last:
                 image = image.to(memory_format=torch.channels_last)
 
             elapsed = time.time()
+            image = image.to(args.device)
             outputs = model(image)
             if args.device == "xpu":
                 torch.xpu.synchronize()
@@ -213,7 +213,11 @@ def main():
         model = model.to(memory_format=torch.channels_last)
         print("---- use NHWC format")
 
-    with torch.inference_mode():
+    with torch.no_grad():
+        model.eval()
+        if args.device == "xpu":
+            datatype = torch.float16 if args.precision == "float16" else torch.bfloat16 if args.precision == "bfloat16" else torch.float
+            model = torch.xpu.optimize(model=model, dtype=datatype)
         if args.precision == "float16" and args.device == "cuda":
             print("---- Use autocast fp16 cuda")
             with torch.cuda.amp.autocast(enabled=True, dtype=torch.float16):
