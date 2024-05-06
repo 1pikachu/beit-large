@@ -25,6 +25,8 @@ def parse_args():
     parser.add_argument('--model_path', default="/home2//pytorch-broad-models/beit-large/models")
     parser.add_argument('--dataset', default="/home2//pytorch-broad-models/imagenet/raw")
     parser.add_argument('--image_size', default=224, type=int)
+    parser.add_argument('--compile', action='store_true', default=False, help='compile model')
+    parser.add_argument('--backend', default="inductor", type=str, help='backend')
     args = parser.parse_args()
     print(args)
     return args
@@ -35,6 +37,10 @@ def test(args, val_loader, model):
     else:
        fuser_mode = "none"
     print("---- fuser mode:", fuser_mode)
+
+    if args.compile:
+        print("----enable compiler")
+        model = torch.compile(model, backend=args.backend, options={"freezing": True})
 
     if args.jit:
         for image, _ in val_loader:
