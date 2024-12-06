@@ -225,24 +225,12 @@ def main():
 
     with torch.no_grad():
         model.eval()
+        datatype = torch.float16 if args.precision == "float16" else torch.bfloat16 if args.precision == "bfloat16" else torch.float
         if args.device == "xpu" and args.ipex:
-            datatype = torch.float16 if args.precision == "float16" else torch.bfloat16 if args.precision == "bfloat16" else torch.float
             model = torch.xpu.optimize(model=model, dtype=datatype)
-        if args.precision == "float16" and args.device == "cuda":
-            print("---- Use autocast fp16 cuda")
-            with torch.autocast(enabled=True, dtype=torch.float16):
-                test(args, val_loader, model)
-        elif args.precision == "float16" and args.device == "xpu":
-            print("---- Use autocast fp16 xpu")
-            with torch.autocast(enabled=True, dtype=torch.float16, cache_enabled=True):
-                test(args, val_loader, model)
-        elif args.precision == "bfloat16" and args.device == "cpu":
-            print("---- Use autocast bf16 cpu")
-            with torch.autocast(enabled=True, dtype=torch.bfloat16):
-                test(args, val_loader, model)
-        elif args.precision == "bfloat16" and args.device == "xpu":
-            print("---- Use autocast bf16 xpu")
-            with torch.autocast(dtype=torch.bfloat16):
+        if datatype != "float32":
+            with torch.autocast(enabled=True, dtype=datatype, device_type=args.device):
+                print("---- Use autocast {} {}".format(datatype, args.device))
                 test(args, val_loader, model)
         else:
             print("---- no autocast")
